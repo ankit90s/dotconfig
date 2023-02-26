@@ -1,2 +1,0 @@
-# dotconfig
-My personal dotconfigs
