@@ -23,7 +23,7 @@ conky.config = {
     -- Placement (For SINGLE monitor users!)
 	alignment = 'bottom_right',		            -- top_left,top_middle,top_right,bottom_left,bottom_middle,bottom_right,
 	gap_x = 40,								-- pixels between right or left border
-	gap_y = 90,								-- pixels between bottom or left border
+	gap_y = 80,								-- pixels between bottom or left border
 
     -- Size
     minimum_height = 200,						-- minimum height of window
@@ -95,6 +95,7 @@ ${voffset 16}${goto 12}${color0}SYSTEM${goto 50}
 ${goto 12}$font${color1}Session: $alignr$color${DESKTOP_SESSION}
 ${goto 12}${color1}Kernel: $alignr$color${kernel}
 ${goto 12}${color1}Uptime: $alignr$color${uptime_short}
+${goto 12}${color1}Core temp: $alignr$color${execi 30 cat /sys/class/thermal/thermal_zone0/temp | awk '{print substr($0,0,2)}'}°C
 
 ${voffset 9}${goto 12}${color0}CPU${goto 50}$alignr$cpu%
 ${color2}${goto 12}${cpubar 8,254}
