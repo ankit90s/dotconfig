@@ -95,7 +95,7 @@ ${voffset 16}${goto 12}${color0}SYSTEM${goto 50}
 ${goto 12}$font${color1}Session: $alignr$color${DESKTOP_SESSION}
 ${goto 12}${color1}Kernel: $alignr$color${kernel}
 ${goto 12}${color1}Uptime: $alignr$color${uptime_short}
-${goto 12}${color1}Core temp: $alignr$color${execi 30 cat /sys/class/thermal/thermal_zone0/temp | awk '{print substr($0,0,2)}'}°C
+${goto 12}${color1}Core temp: $alignr$color${exec sensors | grep 'Package id' | awk '{print $4}'}
 
 ${voffset 9}${goto 12}${color0}CPU${goto 50}$alignr$cpu%
 ${color2}${goto 12}${cpubar 8,254}
