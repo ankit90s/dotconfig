@@ -11,7 +11,8 @@ draw_outline=false,
 draw_borders=false,
 
 gap_x=40,
-gap_y=480,
+gap_y=-200,
+-- gap_y=480;
 
 alignment="bottom_right",
 
