@@ -36,7 +36,7 @@ super + e
 
 # rofi power menu
 super + z
-	rofi -show p -modi p:rofi-power-menu -config /home/$USER/.config/rofi/power/squared-everforest.rasi
+	rofi -show p -modi p:rofi-power-menu -config /home/$USER/.config/rofi/power/config.rasi
 
 # Full screen screenshot using xfce4-screenshooter
 Print
