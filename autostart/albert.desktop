@@ -5,7 +5,6 @@ Type=Application
 Name=Application search
 Comment=albert
 Exec=albert
-OnlyShowIn=XFCE;
 RunHook=0
 StartupNotify=false
 Terminal=false

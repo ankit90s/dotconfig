@@ -5,7 +5,6 @@ Type=Application
 Name=Night Light
 Comment=redshift
 Exec=redshift
-OnlyShowIn=XFCE;
 RunHook=0
 StartupNotify=false
 Terminal=false
