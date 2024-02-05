@@ -1,7 +1,7 @@
 --=============================================================================
 --          This script uses Subliminal to download subtitles,
 --          so make sure to specify your system's Subliminal location below:
-local subliminal = '/home/ankit/.local/bin/subliminal'
+local subliminal = '/usr/bin/subliminal'
 
 --=============================================================================
 -->>    SUBTITLE LANGUAGE:
