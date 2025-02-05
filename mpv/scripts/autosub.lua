@@ -2,6 +2,7 @@
 --          This script uses Subliminal to download subtitles,
 --          so make sure to specify your system's Subliminal location below:
 local subliminal = '/usr/bin/subliminal'
+--          local subliminal = 'C:\Users\ak759\AppData\Local\Programs\Python\Python313\Scripts\subliminal.exe'
 
 --=============================================================================
 -->>    SUBTITLE LANGUAGE:
