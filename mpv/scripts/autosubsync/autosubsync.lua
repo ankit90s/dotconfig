@@ -8,6 +8,7 @@ local utils = require('mp.utils')
 local mpopt = require('mp.options')
 local menu = require('menu')
 local sub = require('subtitle')
+local h = require('helpers')
 local ref_selector
 local engine_selector
 local track_selector
@@ -18,9 +19,9 @@ local track_selector
 local config = {
     -- Change the following lines if the locations of executables differ from the defaults
     -- If set to empty, the path will be guessed.
-    ffmpeg_path = "/usr/bin/ffmpeg",
-    ffsubsync_path = "/home/ankit/.local/bin/ffsubsync",
-    alass_path = "/usr/bin/alass-linux64",
+    ffmpeg_path = "",
+    ffsubsync_path = "",
+    alass_path = "",
 
     -- Choose what tool to use. Allowed options: ffsubsync, alass, ask.
     -- If set to ask, the add-on will ask to choose the tool every time.
@@ -29,12 +30,11 @@ local config = {
 
     -- After retiming, tell mpv to forget the original subtitle track.
     unload_old_sub = true,
+
+    -- Overwrite the original subtitle file
+    overwrite_old_sub = false,
 }
 mpopt.read_options(config, 'autosubsync')
-
-local function is_empty(var)
-    return var == nil or var == '' or (type(var) == 'table' and next(var) == nil)
-end
 
 -- Snippet borrowed from stackoverflow to get the operating system
 -- originally found at: https://stackoverflow.com/a/30960054
@@ -61,33 +61,6 @@ local os_temp = (function()
         end
     end
 end)()
-
--- Courtesy of https://stackoverflow.com/questions/4990990/check-if-a-file-exists-with-lua
-local function file_exists(filepath)
-    if not filepath then
-        return false
-    end
-    local f = io.open(filepath, "r")
-    if f ~= nil then
-        io.close(f)
-        return true
-    else
-        return false
-    end
-end
-
-local function find_executable(name)
-    local os_path = os.getenv("PATH") or ""
-    local fallback_path = utils.join_path("/usr/bin", name)
-    local exec_path
-    for path in os_path:gmatch("[^:]+") do
-        exec_path = utils.join_path(path, name)
-        if file_exists(exec_path) then
-            return exec_path
-        end
-    end
-    return fallback_path
-end
 
 local function notify(message, level, duration)
     level = level or 'info'
@@ -135,8 +108,12 @@ local function get_active_track(track_type)
     local track_list = mp.get_property_native('track-list')
     for num, track in ipairs(track_list) do
         if track.type == track_type and track.selected == true then
-            track['external-filename'] = track.external and url_decode(track['external-filename'])
-            return num, track
+            if track.external and not h.file_exists(track['external-filename']) then
+                track['external-filename'] = url_decode(track['external-filename'])
+            end
+            if not (track_type == 'sub' and track.id == mp.get_property_native('secondary-sid')) then
+                return num, track
+            end
         end
     end
     return notify(string.format("Error: no track of type '%s' selected", track_type), "error", 3)
@@ -150,13 +127,23 @@ local function get_extension(filename)
     return filename:match("^.+(%.%w+)$")
 end
 
+local function startswith(str, prefix)
+    return string.sub(str, 1, string.len(prefix)) == prefix
+end
+
 local function mkfp_retimed(sub_path)
-    return table.concat { remove_extension(sub_path), '_retimed', get_extension(sub_path) }
+    if config.overwrite_old_sub then
+        return sub_path
+    elseif not startswith(sub_path, os_temp()) then
+        return table.concat { remove_extension(sub_path), '_retimed', get_extension(sub_path) }
+    else
+        return table.concat { remove_extension(mp.get_property("path")), '_retimed', get_extension(sub_path) }
+    end
 end
 
 local function engine_is_set()
     local subsync_tool = ref_selector:get_subsync_tool()
-    if is_empty(subsync_tool) or subsync_tool == "ask" then
+    if h.is_empty(subsync_tool) or subsync_tool == "ask" then
         return false
     else
         return true
@@ -184,7 +171,7 @@ local function extract_to_file(subtitle_track)
         "-f", ext,
         temp_sub_fp
     }
-    if ret == nil or ret.status ~= 0 then
+    if ret == nil or ret.status ~= 0 or not h.file_exists(temp_sub_fp) then
         return notify("Couldn't extract internal subtitle.\nMake sure the video has internal subtitles.", "error", 7)
     end
     return temp_sub_fp
@@ -200,7 +187,7 @@ local function sync_subtitles(ref_sub_path)
     local engine_name = engine_selector:get_engine_name()
     local engine_path = config[engine_name .. '_path']
 
-    if not file_exists(engine_path) then
+    if h.is_path(config.ffmpeg_path) and not h.file_exists(engine_path) then
         return notify(
                 string.format("Can't find %s executable.\nPlease specify the correct path in the config.", engine_name),
                 "error",
@@ -208,7 +195,7 @@ local function sync_subtitles(ref_sub_path)
         )
     end
 
-    if not file_exists(subtitle_path) then
+    if not h.file_exists(subtitle_path) then
         return notify(
                 table.concat {
                     "Subtitle synchronization failed:\nCouldn't find ",
@@ -261,7 +248,7 @@ local function sync_to_subtitle()
     if selected_track and selected_track.external then
         sync_subtitles(selected_track['external-filename'])
     else
-        if not file_exists(config.ffmpeg_path) then
+        if h.is_path(config.ffmpeg_path) and not h.file_exists(config.ffmpeg_path) then
             return notify("Can't find ffmpeg executable.\nPlease specify the correct path in the config.", "error", 5)
         end
         local temp_sub_fp = extract_to_file(selected_track)
@@ -334,7 +321,7 @@ function ref_selector:get_keybindings()
         { key = 'WHEEL_DOWN', fn = function() self:down() end },
         { key = 'WHEEL_UP', fn = function() self:up() end },
         { key = 'MBTN_LEFT', fn = function() self:act() end },
-        { key = 'MBTN_RIGHT', fn = function() self:close() end },   
+        { key = 'MBTN_RIGHT', fn = function() self:close() end },
     }
 end
 
@@ -366,7 +353,7 @@ function ref_selector:act()
     self:close()
 
     if self.selected == 3 then
-        do return sync_to_manual_offset() end
+        return sync_to_manual_offset()
     end
     if self.selected == 4 then
         return
@@ -440,6 +427,17 @@ end
 
 track_selector = ref_selector:new { }
 
+local function is_supported_format(track)
+    local supported_format = true
+    if track.external then
+        local ext = get_extension(track['external-filename'])
+        if ext ~= '.srt' and ext ~= '.ass' then
+            supported_format = false
+        end
+    end
+    return supported_format
+end
+
 function track_selector:init()
     self.selected = 0
 
@@ -448,19 +446,12 @@ function track_selector:init()
     end
 
     self.all_sub_tracks = get_loaded_tracks(ref_selector:get_ref())
+    self.secondary_sid = mp.get_property_native('secondary-sid')
     self.tracks = {}
     self.items = {}
 
     for _, track in ipairs(self.all_sub_tracks) do
-        local supported_format = true
-        if track.external then
-            local ext = get_extension(track['external-filename'])
-            if ext ~= '.srt' and ext ~= '.ass' then
-                supported_format = false
-            end
-        end
-
-        if not track.selected and supported_format then
+        if (not track.selected or track.id == self.secondary_sid) and is_supported_format(track) then
             table.insert(self.tracks, track)
             table.insert(
                     self.items,
@@ -507,7 +498,7 @@ end
 local function init()
     for _, executable in pairs { 'ffmpeg', 'ffsubsync', 'alass' } do
         local config_key = executable .. '_path'
-        config[config_key] = is_empty(config[config_key]) and find_executable(executable) or config[config_key]
+        config[config_key] = h.is_empty(config[config_key]) and h.find_executable(executable) or config[config_key]
     end
 end
 
